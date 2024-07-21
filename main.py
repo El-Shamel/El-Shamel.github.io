@@ -5,9 +5,10 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"message": "Hello, You See Api Mohamed Helal!",
-            "startapi":"/docs"}
-
+    return {
+        "message": "Hello, You See Api Mohamed Helal!",
+        "infoapi":"https://api-mohamedhelal.vercel.app/docs"
+        }
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: str = None):
     return {"item_id": item_id, "q": q}
