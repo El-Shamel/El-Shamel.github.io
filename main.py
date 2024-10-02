@@ -7,7 +7,7 @@ app = FastAPI()
 def home():
     return {
         "message": "Hello, You See Api Mohamed Helal!",
-        "infoapi":"https://api-mohamedhelal.vercel.app/docs"
+        "infoapi":"new applcition"
         }
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: str = None):
