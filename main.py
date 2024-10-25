@@ -90,10 +90,6 @@ create()
 
 app = FastAPI()
 
-@app.get("/")
-def fast():
-    return "hello worled"
-    
 @app.get("/admins")
 def home():
     conn = sqlite3.connect()
@@ -382,7 +378,7 @@ async def add_session(session: Session):
     return {"detail": "Session added successfully"}
 
 
-UPLOAD_DIRECTORY = "/uploads"
+UPLOAD_DIRECTORY = "uploads"
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
@@ -523,3 +519,5 @@ async def get_arshef_by_name(case: arshefallsbyname):
     finally:
         conn.close()
 
+# if __name__ =="__main__":
+#     uvicorn.run("main:app",host="10.1.133.37",port=8080,reload=True)
