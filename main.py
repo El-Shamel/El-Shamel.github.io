@@ -518,5 +518,4 @@ async def get_arshef_by_name(case: arshefallsbyname):
     finally:
         conn.close()
 
-if __name__ =="__main__":
-    uvicorn.run("main:app",host="10.1.133.37",port=8080,reload=True)
+
