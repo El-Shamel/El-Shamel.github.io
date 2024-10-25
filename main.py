@@ -5,10 +5,11 @@ import os
 import sqlite3
 import uvicorn
 from pydantic import BaseModel
- 
+
+database = 'api/lowyer.db'
 
 def create():
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -91,7 +92,7 @@ app = FastAPI()
 
 @app.get("/admins")
 def home():
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -112,7 +113,7 @@ class Admin(BaseModel):
 # إضافة مشرف
 @app.post("/admins/")
 def add_admin(admin: Admin):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -127,7 +128,7 @@ def add_admin(admin: Admin):
 
 @app.put("/admins/{user_id}")
 def update_admin(user_id: int, admin: Admin):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -147,7 +148,7 @@ def update_admin(user_id: int, admin: Admin):
 
 @app.delete("/admins/{user_id}")
 def delete_admin(user_id: int):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -171,7 +172,7 @@ class Login(BaseModel):
     
 @app.post("/login/")
 async def login(login: Login):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -215,7 +216,7 @@ class Case(BaseModel):
 # إضافة قضية
 @app.post("/casesadd/")
 async def add_case(case: Case):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -241,7 +242,7 @@ async def add_case(case: Case):
 # تعديل قضية
 @app.post("/casesedit/")
 async def update_case(case: Case):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -278,7 +279,7 @@ class Casesone(BaseModel):
 @app.post("/caseone/")
 async def get_cases_by_userone(case: Casesone):
     try:
-        conn = sqlite3.connect('lowyer.db')
+        conn = sqlite3.connect(database)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
@@ -301,7 +302,7 @@ class Casesalls(BaseModel):
 @app.post("/casesall/")
 async def get_cases_by_usera(case: Casesalls):
     try:
-        conn = sqlite3.connect('lowyer.db')
+        conn = sqlite3.connect(database)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
@@ -325,7 +326,7 @@ class Casesallsbyname(BaseModel):
     
 @app.post("/casesallname/")
 async def get_cases_by_name(case: Casesallsbyname):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -344,7 +345,7 @@ class getsessions(BaseModel):
 
 @app.post("/sessions/")
 async def get_sessions(case : getsessions):
-    with sqlite3.connect('lowyer.db') as conn:
+    with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -364,7 +365,7 @@ class Session(BaseModel):
 
 @app.post("/sessionsadd/")
 async def add_session(session: Session):
-    with sqlite3.connect('lowyer.db') as conn:
+    with sqlite3.connect(database) as conn:
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -377,7 +378,7 @@ async def add_session(session: Session):
     return {"detail": "Session added successfully"}
 
 
-UPLOAD_DIRECTORY = "./uploads"
+UPLOAD_DIRECTORY = "api/uploads"
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
@@ -423,7 +424,7 @@ class ArshefCase(BaseModel):
 
 @app.post("/Arshefcases/")
 async def create_arshefcase(case: ArshefCase):
-    with sqlite3.connect('lowyer.db') as conn:
+    with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -480,7 +481,7 @@ class ArshefCasesalls(BaseModel):
 @app.post("/archefcasesall/")
 async def get_Arshefcases_by_usera(case: ArshefCasesalls):
     try:
-        conn = sqlite3.connect('lowyer.db')
+        conn = sqlite3.connect(database)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
@@ -505,7 +506,7 @@ class arshefallsbyname(BaseModel):
     
 @app.post("/arshefallsbyname/")
 async def get_arshef_by_name(case: arshefallsbyname):
-    conn = sqlite3.connect('lowyer.db')
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -517,5 +518,4 @@ async def get_arshef_by_name(case: arshefallsbyname):
         return  cursor.fetchall()
     finally:
         conn.close()
-
 
