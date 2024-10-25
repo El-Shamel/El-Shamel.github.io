@@ -6,7 +6,7 @@ import sqlite3
 import uvicorn
 from pydantic import BaseModel
 
-database = 'api/lowyer.db'
+database = 'lowyer.db'
 
 def create():
     conn = sqlite3.connect(database)
@@ -378,7 +378,7 @@ async def add_session(session: Session):
     return {"detail": "Session added successfully"}
 
 
-UPLOAD_DIRECTORY = "api/uploads"
+UPLOAD_DIRECTORY = "/uploads"
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
