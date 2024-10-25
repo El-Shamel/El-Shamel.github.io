@@ -90,6 +90,10 @@ create()
 
 app = FastAPI()
 
+@app.get("/")
+def fast():
+    return "hello worled"
+    
 @app.get("/admins")
 def home():
     conn = sqlite3.connect()
