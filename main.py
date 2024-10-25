@@ -378,7 +378,7 @@ async def add_session(session: Session):
     return {"detail": "Session added successfully"}
 
 
-UPLOAD_DIRECTORY = "uploads"
+UPLOAD_DIRECTORY = "./uploads"
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
