@@ -378,16 +378,17 @@ async def add_session(session: Session):
     return {"detail": "Session added successfully"}
 
 
-UPLOAD_DIRECTORY = "./uploads"
+# استخدام المسار المطلق
+UPLOAD_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
-
+    
 @app.post("/upload/{new_filename}")
 async def upload_file(file: UploadFile = File(...), new_filename: str = None):
     # إذا تم توفير اسم جديد، استخدمه، وإلا استخدم الاسم الأصلي
     filename = new_filename if new_filename else file.filename
-    file_location = f"{UPLOAD_DIRECTORY}/{new_filename}"
+    file_location = os.path.join(UPLOAD_DIRECTORY, filename)
     
     with open(file_location, "wb") as f:
         f.write(await file.read())
