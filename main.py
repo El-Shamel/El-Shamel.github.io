@@ -379,7 +379,7 @@ async def add_session(session: Session):
 
 
 # استخدام المسار المطلق
-UPLOAD_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+UPLOAD_DIRECTORY = "/tmp/uploads"
 
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
