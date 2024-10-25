@@ -92,7 +92,7 @@ app = FastAPI()
 
 @app.get("/admins")
 def home():
-    conn = sqlite3.connect()
+    conn = sqlite3.connect(database)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
