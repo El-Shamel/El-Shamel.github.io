@@ -382,12 +382,17 @@ UPLOAD_DIRECTORY = "./uploads"
 # تأكد من وجود المجلد
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    file_location = f"{UPLOAD_DIRECTORY}/{file.filename}"
+@app.post("/upload/{new_filename}")
+async def upload_file(file: UploadFile = File(...), new_filename: str = None):
+    # إذا تم توفير اسم جديد، استخدمه، وإلا استخدم الاسم الأصلي
+    filename = new_filename if new_filename else file.filename
+    file_location = f"{UPLOAD_DIRECTORY}/{new_filename}"
+    
     with open(file_location, "wb") as f:
         f.write(await file.read())
-    return {"filename": file.filename}
+    
+    return {"filename": filename}
+
 
 @app.get("/download/{filename}")
 async def download_file(filename: str):
@@ -396,9 +401,122 @@ async def download_file(filename: str):
         return {"error": "File not found"}
     return FileResponse(file_path)
 
-# لتشغيل الخادم: uvicorn main:app --reload
+
+class ArshefCase(BaseModel):
+    user_id: int
+    case_number: str
+    case_year: str
+    case_type: str
+    first_instance_court: str
+    appellate_court: str
+    appellate_case_number: str
+    appellate_case_year: str
+    client_name: str
+    client_role: str
+    opponent_name: str
+    opponent_role: str
+    case_subject: str
+    power_of_attorney_number: str
+    power_of_attorney_year: str
+    last_session_date: str
+    
+
+@app.post("/Arshefcases/")
+async def create_arshefcase(case: ArshefCase):
+    with sqlite3.connect('lowyer.db') as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM Arshef WHERE user_id = ? AND case_number = ?', (case.user_id, case.case_number))
+        existing_case = cursor.fetchone()
+
+        if existing_case:
+            # إذا كان موجودًا، استخدم INSERT OR REPLACE
+            cursor.execute('''
+                INSERT OR REPLACE INTO Arshef (
+                    user_id, case_number, case_year, case_type, 
+                    first_instance_court, appellate_court, 
+                    appellate_case_number, appellate_case_year, 
+                    client_name, client_role, opponent_name, 
+                    opponent_role, case_subject, 
+                    power_of_attorney_number, power_of_attorney_year, 
+                    last_session_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (case.user_id, case.case_number, case.case_year, case.case_type, 
+                case.first_instance_court, case.appellate_court, 
+                case.appellate_case_number, case.appellate_case_year, 
+                case.client_name, case.client_role, case.opponent_name, 
+                case.opponent_role, case.case_subject, 
+                case.power_of_attorney_number, case.power_of_attorney_year, 
+                case.last_session_date))
+            conn.commit()
+            return {"detail": "تم تحديث البيانات في الارشيف"}
+        else:
+            # إذا لم يكن موجودًا، قم بإدخاله كإدخال جديد
+            cursor.execute('''
+                INSERT INTO Arshef (
+                    user_id, case_number, case_year, case_type, 
+                    first_instance_court, appellate_court, 
+                    appellate_case_number, appellate_case_year, 
+                    client_name, client_role, opponent_name, 
+                    opponent_role, case_subject, 
+                    power_of_attorney_number, power_of_attorney_year, 
+                    last_session_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (case.user_id, case.case_number, case.case_year, case.case_type, 
+                case.first_instance_court, case.appellate_court, 
+                case.appellate_case_number, case.appellate_case_year, 
+                case.client_name, case.client_role, case.opponent_name, 
+                case.opponent_role, case.case_subject, 
+                case.power_of_attorney_number, case.power_of_attorney_year, 
+                case.last_session_date))
+            conn.commit()
+            return {"detail": "تم الحفظ في الارشيف"}
 
 
+class ArshefCasesalls(BaseModel):
+    user_id: int
+
+@app.post("/archefcasesall/")
+async def get_Arshefcases_by_usera(case: ArshefCasesalls):
+    try:
+        conn = sqlite3.connect('lowyer.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+                SELECT * FROM Arshef WHERE user_id = ? 
+            ''', (case.user_id,))
+        
+        archefcases = cursor.fetchall()
+        
+
+        
+        if not archefcases:
+            raise HTTPException(status_code=404, detail="No cases found for this user")
+        
+        return archefcases 
+    finally:
+        conn.close()
+
+
+class arshefallsbyname(BaseModel):
+    user_id: int
+    name: str
+    
+@app.post("/arshefallsbyname/")
+async def get_arshef_by_name(case: arshefallsbyname):
+    conn = sqlite3.connect('lowyer.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+        SELECT *
+        FROM Arshef
+        WHERE user_id = ? AND (client_name LIKE ? OR opponent_name LIKE ? OR case_number LIKE ? OR first_instance_court LIKE ? OR power_of_attorney_number LIKE ? OR case_subject LIKE ?)
+        ''', (case.user_id, f'{case.name}%', f'{case.name}%', f'{case.name}%', f'{case.name}%', f'{case.name}%', f'{case.name}%'))
+        return  cursor.fetchall()
+    finally:
+        conn.close()
 
 if __name__ =="__main__":
     uvicorn.run("main:app",host="10.1.133.37",port=8080,reload=True)
