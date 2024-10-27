@@ -39,7 +39,6 @@ def create():
         case_subject TEXT,
         power_of_attorney_number TEXT,
         power_of_attorney_year TEXT,
-        last_session_date TEXT,
         FOREIGN KEY (user_id) REFERENCES admins(user_id)
     )
     ''')
@@ -63,7 +62,6 @@ def create():
         case_subject TEXT,
         power_of_attorney_number TEXT,
         power_of_attorney_year TEXT,
-        last_session_date TEXT,
         FOREIGN KEY (user_id) REFERENCES admins(user_id)
     )
     ''')
@@ -209,7 +207,6 @@ class Case(BaseModel):
     case_subject: str
     power_of_attorney_number: str
     power_of_attorney_year: str
-    last_session_date: str
 
 
 
@@ -225,16 +222,16 @@ async def add_case(case: Case):
                            appellate_case_number, appellate_case_year, 
                            client_name, client_role, opponent_name, 
                            opponent_role, case_subject, 
-                           power_of_attorney_number, power_of_attorney_year, 
-                           last_session_date) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           power_of_attorney_number, power_of_attorney_year
+                           ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (case.user_id, case.case_number, case.case_year, case.case_type, 
           case.first_instance_court, case.appellate_court, 
           case.appellate_case_number, case.appellate_case_year, 
           case.client_name, case.client_role, case.opponent_name, 
           case.opponent_role, case.case_subject, 
-          case.power_of_attorney_number, case.power_of_attorney_year, 
-          case.last_session_date))
+          case.power_of_attorney_number, case.power_of_attorney_year
+          ))
     conn.commit()
     conn.close()
     return {"detail": "Case added successfully"}
@@ -252,8 +249,7 @@ async def update_case(case: Case):
             appellate_case_number = ?, appellate_case_year = ?, 
             client_name = ?, client_role = ?, opponent_name = ?, 
             opponent_role = ?, case_subject = ?, 
-            power_of_attorney_number = ?, power_of_attorney_year = ?, 
-            last_session_date = ? 
+            power_of_attorney_number = ?, power_of_attorney_year = ?
         WHERE case_number = ? AND user_id = ?
     ''', (case.case_number ,case.case_year, case.case_type, 
           case.first_instance_court, case.appellate_court, 
@@ -261,7 +257,7 @@ async def update_case(case: Case):
           case.client_name, case.client_role, case.opponent_name, 
           case.opponent_role, case.case_subject, 
           case.power_of_attorney_number, case.power_of_attorney_year, 
-          case.last_session_date, case.case_number,case.user_id))
+           case.case_number,case.user_id))
     
     if cursor.rowcount == 0:
         conn.close()
@@ -306,8 +302,15 @@ async def get_cases_by_usera(case: Casesalls):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-                SELECT * FROM Cases WHERE user_id = ? AND last_session_date = ?
-            ''', (case.user_id, case.last_session_date))
+    SELECT s.session_id, s.case_number, s.session_date, s.session_decision, 
+           c.user_id, c.case_year, c.case_type, c.first_instance_court,
+           c.appellate_court, c.appellate_case_number, c.appellate_case_year,
+           c.client_name, c.client_role, c.opponent_name, c.opponent_role,
+           c.case_subject, c.power_of_attorney_number, c.power_of_attorney_year
+    FROM Sessions s
+    JOIN Cases c ON s.case_number = c.case_number
+    WHERE s.session_date = ? 
+''', (case.last_session_date,))
         
         cases = cursor.fetchall()
         
@@ -377,6 +380,37 @@ async def add_session(session: Session):
     
     return {"detail": "Session added successfully"}
 
+class UpdateSession(BaseModel):
+    session_id: int
+    new_decision: str
+
+@app.post("/update-session/")
+async def update_session(data: UpdateSession):
+    with sqlite3.connect(database) as conn:
+        cursor = conn.cursor()
+    
+        cursor.execute('''
+            UPDATE Sessions
+            SET session_decision = ?
+            WHERE session_id = ?
+        ''', (data.new_decision, data.session_id))
+        conn.commit()
+        return {"message": "تم تحديث القرار بنجاح"}
+
+# نموذج بيانات لحذف الجلسة
+class DeleteSession(BaseModel):
+    session_id: int
+
+
+@app.delete("/delete-session/")
+async def delete_session(data: DeleteSession):
+    with sqlite3.connect(database) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            DELETE FROM Sessions
+            WHERE session_id = ?
+        ''', (data.session_id,))
+        conn.commit()
 
 # استخدام المسار المطلق
 UPLOAD_DIRECTORY = "./uploads"
@@ -420,7 +454,6 @@ class ArshefCase(BaseModel):
     case_subject: str
     power_of_attorney_number: str
     power_of_attorney_year: str
-    last_session_date: str
     
 
 @app.post("/Arshefcases/")
@@ -441,16 +474,13 @@ async def create_arshefcase(case: ArshefCase):
                     appellate_case_number, appellate_case_year, 
                     client_name, client_role, opponent_name, 
                     opponent_role, case_subject, 
-                    power_of_attorney_number, power_of_attorney_year, 
-                    last_session_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    power_of_attorney_number, power_of_attorney_year) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (case.user_id, case.case_number, case.case_year, case.case_type, 
                 case.first_instance_court, case.appellate_court, 
                 case.appellate_case_number, case.appellate_case_year, 
                 case.client_name, case.client_role, case.opponent_name, 
                 case.opponent_role, case.case_subject, 
-                case.power_of_attorney_number, case.power_of_attorney_year, 
-                case.last_session_date))
+                case.power_of_attorney_number, case.power_of_attorney_year))
             conn.commit()
             return {"detail": "تم تحديث البيانات في الارشيف"}
         else:
@@ -462,16 +492,14 @@ async def create_arshefcase(case: ArshefCase):
                     appellate_case_number, appellate_case_year, 
                     client_name, client_role, opponent_name, 
                     opponent_role, case_subject, 
-                    power_of_attorney_number, power_of_attorney_year, 
-                    last_session_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    power_of_attorney_number, power_of_attorney_year
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (case.user_id, case.case_number, case.case_year, case.case_type, 
                 case.first_instance_court, case.appellate_court, 
                 case.appellate_case_number, case.appellate_case_year, 
                 case.client_name, case.client_role, case.opponent_name, 
                 case.opponent_role, case.case_subject, 
-                case.power_of_attorney_number, case.power_of_attorney_year, 
-                case.last_session_date))
+                case.power_of_attorney_number, case.power_of_attorney_year))
             conn.commit()
             return {"detail": "تم الحفظ في الارشيف"}
 
@@ -519,6 +547,8 @@ async def get_arshef_by_name(case: arshefallsbyname):
         return  cursor.fetchall()
     finally:
         conn.close()
+        
+        
 
-# if __name__ =="__main__":
-#     uvicorn.run("main:app",host="10.1.133.37",port=8080,reload=True)
+if __name__ =="__main__":
+    uvicorn.run("main:app",host="10.1.183.22",port=8080,reload=True)
