@@ -1,5 +1,4 @@
-from datetime import date
-import datetime
+from datetime import date , timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi import  File, UploadFile
 from fastapi.responses import FileResponse
@@ -336,12 +335,8 @@ async def get_casesweek_usera(case: Casesallsweek):
         conn = sqlite3.connect(database)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        today = datetime.today()
-        dates_list = []
-        for i in range(7):
-            date = today + timedelta(days=i)
-            dates_list.append(f"{date.day}/{date.month}/{date.year}")
-        dates_list.append(case.user_id)
+        today = date.today()
+        next_week = today + timedelta(days=7)
         cursor.execute('''
     SELECT s.session_id, c.case_number, s.session_date, s.session_decision, 
            c.user_id, c.case_year, c.case_type, c.first_instance_court,
@@ -350,8 +345,9 @@ async def get_casesweek_usera(case: Casesallsweek):
            c.case_subject, c.power_of_attorney_number, c.power_of_attorney_year
     FROM Sessions s
     JOIN Cases c ON s.case_number = c.case_number
-    WHERE s.session_date = ? or ? or ? or ? or ? or ? or ? AND c.user_id = ?
-''',(dates_list))
+    WHERE s.session_date BETWEEN ? AND ? 
+    AND c.user_id = ?
+''',(today.strftime('%d-%m-%Y'),next_week.strftime('%d-%m-%Y'),case.user_id))
         
         cases = cursor.fetchall()
         if not cases:
