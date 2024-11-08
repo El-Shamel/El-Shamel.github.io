@@ -1,3 +1,5 @@
+from datetime import date
+import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi import  File, UploadFile
 from fastapi.responses import FileResponse
@@ -302,15 +304,15 @@ async def get_cases_by_usera(case: Casesalls):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-    SELECT s.session_id, s.case_number, s.session_date, s.session_decision, 
+    SELECT s.session_id, c.case_number, s.session_date, s.session_decision, 
            c.user_id, c.case_year, c.case_type, c.first_instance_court,
            c.appellate_court, c.appellate_case_number, c.appellate_case_year,
            c.client_name, c.client_role, c.opponent_name, c.opponent_role,
            c.case_subject, c.power_of_attorney_number, c.power_of_attorney_year
     FROM Sessions s
     JOIN Cases c ON s.case_number = c.case_number
-    WHERE s.session_date = ? 
-''', (case.last_session_date,))
+    WHERE s.session_date = ?  AND c.user_id = ?
+''',(case.last_session_date,case.user_id))
         
         cases = cursor.fetchall()
         
@@ -322,6 +324,74 @@ async def get_cases_by_usera(case: Casesalls):
         return cases 
     finally:
         conn.close()
+        
+class Casesallsweek(BaseModel):
+    user_id: int
+    
+from datetime import datetime, timedelta
+
+@app.post("/casesallweek/")
+async def get_casesweek_usera(case: Casesallsweek):
+    try: 
+        conn = sqlite3.connect(database)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        today = datetime.today()
+        dates_list = []
+        for i in range(7):
+            date = today + timedelta(days=i)
+            dates_list.append(f"{date.day}/{date.month}/{date.year}")
+        dates_list.append(case.user_id)
+        cursor.execute('''
+    SELECT s.session_id, c.case_number, s.session_date, s.session_decision, 
+           c.user_id, c.case_year, c.case_type, c.first_instance_court,
+           c.appellate_court, c.appellate_case_number, c.appellate_case_year,
+           c.client_name, c.client_role, c.opponent_name, c.opponent_role,
+           c.case_subject, c.power_of_attorney_number, c.power_of_attorney_year
+    FROM Sessions s
+    JOIN Cases c ON s.case_number = c.case_number
+    WHERE s.session_date = ? or ? or ? or ? or ? or ? or ? AND c.user_id = ?
+''',(dates_list))
+        
+        cases = cursor.fetchall()
+        if not cases:
+            raise HTTPException(status_code=404, detail="No cases found for this user")
+        
+        return cases 
+    finally:
+        conn.close()
+
+        
+class Casesallsempty(BaseModel):
+    user_id: int
+
+@app.post("/casesallempty/")
+async def get_casesempty_usera(case : Casesallsempty):
+    try:
+        conn = sqlite3.connect(database)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute(''' 
+    SELECT s.session_id, s.session_date, s.session_decision, 
+           c.user_id,c.case_number, c.case_year, c.case_type, c.first_instance_court,
+           c.appellate_court, c.appellate_case_number, c.appellate_case_year,
+           c.client_name, c.client_role, c.opponent_name, c.opponent_role,
+           c.case_subject, c.power_of_attorney_number, c.power_of_attorney_year
+    FROM Cases c
+    LEFT JOIN Sessions s ON s.case_number = c.case_number
+    WHERE s.session_id IS NULL AND c.user_id = ?
+''',(case.user_id,))
+
+        cases = cursor.fetchall()
+        
+        if not cases:
+            raise HTTPException(status_code=404, detail="No cases found without sessions")
+        
+        return cases 
+    finally:
+        conn.close()
+
 
 class Casesallsbyname(BaseModel):
     user_id: int
@@ -343,6 +413,7 @@ async def get_cases_by_name(case: Casesallsbyname):
         conn.close()
 
 class getsessions(BaseModel):
+    user_id : int
     case_number: str
 
 
@@ -352,7 +423,7 @@ async def get_sessions(case : getsessions):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM Sessions WHERE case_number = ?", (case.case_number,))
+        cursor.execute("SELECT * FROM Sessions WHERE user_id = ? AND case_number = ?", (case.user_id,case.case_number,))
         sessions = cursor.fetchall()
 
         if not sessions:
@@ -382,7 +453,8 @@ async def add_session(session: Session):
 
 class UpdateSession(BaseModel):
     session_id: int
-    new_decision: str
+    session_decision: str
+    session_date: str
 
 @app.post("/update-session/")
 async def update_session(data: UpdateSession):
@@ -391,9 +463,9 @@ async def update_session(data: UpdateSession):
     
         cursor.execute('''
             UPDATE Sessions
-            SET session_decision = ?
+            SET session_decision = ? , session_date = ?
             WHERE session_id = ?
-        ''', (data.new_decision, data.session_id))
+        ''', (data.session_decision,data.session_date, data.session_id))
         conn.commit()
         return {"message": "تم تحديث القرار بنجاح"}
 
@@ -551,4 +623,4 @@ async def get_arshef_by_name(case: arshefallsbyname):
         
 
 if __name__ =="__main__":
-    uvicorn.run("main:app",host="10.1.183.22",port=8080,reload=True)
+    uvicorn.run("main:app",host="10.1.179.130",port=8080,reload=True)
