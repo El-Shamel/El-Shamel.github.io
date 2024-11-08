@@ -74,7 +74,7 @@ def create():
         session_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         case_number TEXT,
-        session_date TEXT,
+        session_date DATE,
         session_decision TEXT,
         FOREIGN KEY (case_number) REFERENCES Cases(case_number)
     )
