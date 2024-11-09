@@ -1,7 +1,10 @@
 from datetime import date , timedelta
+import shutil
 from fastapi import FastAPI, HTTPException
 from fastapi import  File, UploadFile
 from fastapi.responses import FileResponse
+from PyPDF2 import PdfReader, PdfWriter
+from fpdf import FPDF
 import os
 import sqlite3
 import uvicorn
@@ -481,30 +484,124 @@ async def delete_session(data: DeleteSession):
         conn.commit()
 
 # استخدام المسار المطلق
-UPLOAD_DIRECTORY = "./uploads"
 
+UPLOAD_DIR = 'uploads'
 # تأكد من وجود المجلد
-os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
     
-@app.post("/upload/{new_filename}")
-async def upload_file(file: UploadFile = File(...), new_filename: str = None):
-    # إذا تم توفير اسم جديد، استخدمه، وإلا استخدم الاسم الأصلي
-    filename = new_filename if new_filename else file.filename
-    file_location = os.path.join(UPLOAD_DIRECTORY, filename)
-    
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-    
-    return {"filename": filename}
+# @app.post("/upload/{new_filename}")
+# async def upload_file(file: UploadFile = File(...), new_filename: str = None):
+#     filename = new_filename if new_filename else file.filename
+#     file_location = os.path.join(UPLOAD_DIRECTORY, f"{filename}.pdf")
+#     with open(file_location, "wb") as f:
+#         f.write(await file.read())
+#     return {"filename": filename}
 
+
+
+@app.post("/uploadpdf/{new_filename}")
+async def upload_pdf(new_filename: str, file: UploadFile = File(...)):
+    pdf_path = os.path.join(UPLOAD_DIR, f"{new_filename}.pdf")
+    # تحقق إذا كان ملف PDF موجودًا
+    if os.path.exists(pdf_path):
+        # إذا كان الملف موجودًا، نضيف الصور إليه
+        try:
+            # قراءة الملف الموجود
+            reader = PdfReader(pdf_path)
+            writer = PdfWriter()
+
+            # نسخ جميع الصفحات من الـ PDF الموجود
+            for page in reader.pages:
+                writer.add_page(page)
+
+            # إضافة الصورة إلى الـ PDF
+            temp_pdf = "temp_image_page.pdf"
+            pdf = FPDF()
+            pdf.add_page()
+            image_path = os.path.join(UPLOAD_DIR, file.filename)
+            with open(image_path, 'wb') as image_file:
+                image_file.write(await file.read())  # حفظ الصورة مؤقتًا
+            pdf.image(image_path, x=10, y=10, w=100)
+            pdf.output(temp_pdf)
+
+            # قراءة الملف المؤقت الذي يحتوي على الصورة
+            image_pdf_reader = PdfReader(temp_pdf)
+            image_pdf_page = image_pdf_reader.pages[0]
+            writer.add_page(image_pdf_page)
+
+            # حفظ الـ PDF المعدل
+            with open(pdf_path, "wb") as output_file:
+                writer.write(output_file)
+
+            # حذف الملف المؤقت
+            os.remove(temp_pdf)
+            os.remove(image_path)  # حذف الصورة المؤقتة
+            return {"message": "تم إضافة الصورة بنجاح إلى ملف PDF!"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    else:
+        # إذا لم يكن الملف موجودًا، نخلق ملف PDF جديد
+        try:
+            writer = PdfWriter()
+
+            # إضافة الصورة إلى الـ PDF الجديد
+            temp_pdf = "temp_image_page.pdf"
+            pdf = FPDF()
+            pdf.add_page()
+            image_path = os.path.join(UPLOAD_DIR, file.filename)
+            with open(image_path, 'wb') as image_file:
+                image_file.write(await file.read())  # حفظ الصورة مؤقتًا
+            pdf.image(image_path, x=10, y=10, w=100)
+            pdf.output(temp_pdf)
+
+            # قراءة الملف المؤقت الذي يحتوي على الصورة
+            image_pdf_reader = PdfReader(temp_pdf)
+            image_pdf_page = image_pdf_reader.pages[0]
+            writer.add_page(image_pdf_page)
+
+            # إنشاء ملف PDF جديد
+            with open(pdf_path, "wb") as output_file:
+                writer.write(output_file)
+
+            # حذف الملفات المؤقتة
+            os.remove(temp_pdf)
+            os.remove(image_path)  # حذف الصورة المؤقتة
+            return {"message": "تم إنشاء ملف PDF جديد وإضافة الصورة بنجاح!"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/download/{filename}")
 async def download_file(filename: str):
-    file_path = os.path.join(UPLOAD_DIRECTORY, filename)
+    file_path = os.path.join(UPLOAD_DIR, f"{filename}.pdf")
     if not os.path.exists(file_path):
         return {"error": "File not found"}
     return FileResponse(file_path)
 
+class removeimgpdf(BaseModel):
+    name: str
+    delete : int
+    
+@app.post("/removeimg/")
+async def removeimg(case: removeimgpdf):
+    page_to_delete = case.delete - 1  
+    reader = PdfReader(f"uploads/{case.name}.pdf")
+    writer = PdfWriter()
+    cont = 0
+    # نسخ كل الصفحات من PDF الأصلي ما عدا الصفحة التي نريد حذفها
+    for i, page in enumerate(reader.pages):
+        cont = i
+        if i != page_to_delete:
+            
+            writer.add_page(page)
+            
+    if cont < page_to_delete:
+        print(cont)
+        raise HTTPException(status_code=404,detail="error")
+    else:
+        with open(f"uploads/{case.name}.pdf", "wb") as output_file:
+            writer.write(output_file)
+    
 
 class ArshefCase(BaseModel):
     user_id: int
