@@ -9,6 +9,7 @@ import os
 import sqlite3
 import uvicorn
 from pydantic import BaseModel
+from PIL import Image
 
 database = './lowyer.db'
 
@@ -81,6 +82,15 @@ def create():
         FOREIGN KEY (case_number) REFERENCES Cases(case_number)
     )
     ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS nmozg (
+        nmozg_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER ,
+        nmozg_name TEXT,
+        nmozg_decision TEXT
+    )
+    ''')
 
     
     conn.commit()
@@ -122,10 +132,11 @@ def add_admin(admin: Admin):
         INSERT INTO admins (username, email, password) 
         VALUES (?, ?, ?)
     ''', (admin.username, admin.email, admin.password))
-    print(cursor.rowcount)
     conn.commit()
     conn.close()
     return {"detail": "تم اضافة ادمن بنجاح"}
+
+
 
 
 @app.put("/admins/{user_id}")
@@ -500,8 +511,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @app.post("/uploadpdf/{new_filename}")
-async def upload_pdf(new_filename: str, file: UploadFile = File(...)):
+async def upload_pdf(new_filename: str, files: list[UploadFile] = File(...)):
     pdf_path = os.path.join(UPLOAD_DIR, f"{new_filename}.pdf")
+    
     # تحقق إذا كان ملف PDF موجودًا
     if os.path.exists(pdf_path):
         # إذا كان الملف موجودًا، نضيف الصور إليه
@@ -514,29 +526,57 @@ async def upload_pdf(new_filename: str, file: UploadFile = File(...)):
             for page in reader.pages:
                 writer.add_page(page)
 
-            # إضافة الصورة إلى الـ PDF
-            temp_pdf = "temp_image_page.pdf"
-            pdf = FPDF()
-            pdf.add_page()
-            image_path = os.path.join(UPLOAD_DIR, file.filename)
-            with open(image_path, 'wb') as image_file:
-                image_file.write(await file.read())  # حفظ الصورة مؤقتًا
-            pdf.image(image_path, x=10, y=10, w=100)
-            pdf.output(temp_pdf)
+            # إضافة الصور إلى الـ PDF
+            for file in files:
+                temp_pdf = "temp_image_page.pdf"
+                pdf = FPDF()
+                pdf.add_page()
 
-            # قراءة الملف المؤقت الذي يحتوي على الصورة
-            image_pdf_reader = PdfReader(temp_pdf)
-            image_pdf_page = image_pdf_reader.pages[0]
-            writer.add_page(image_pdf_page)
+                # حساب أبعاد الصفحة (A4 هو الحجم القياسي)
+                page_width = pdf.w
+                page_height = pdf.h
+                
+                # مسار الصورة المؤقت
+                image_path = os.path.join(UPLOAD_DIR, file.filename)
+                
+                # حفظ الصورة مؤقتًا
+                with open(image_path, 'wb') as image_file:
+                    image_file.write(await file.read())
+                
+                # استخدام PIL للحصول على أبعاد الصورة الأصلية
+                with Image.open(image_path) as img:
+                    img_width, img_height = img.size
+                
+                # حساب النسب وتعديل حجم الصورة بحيث تحافظ على النسبة الأصلية
+                # حساب نسبة التوسيع للعرض والارتفاع
+                width_ratio = page_width / img_width
+                height_ratio = page_height / img_height
+                
+                # اختر النسبة الأصغر لتجنب التشويه
+                scale_ratio = min(width_ratio, height_ratio)
+                
+                # حساب الأبعاد الجديدة
+                new_width = img_width * scale_ratio
+                new_height = img_height * scale_ratio
+                
+                # إضافة الصورة إلى PDF بحجم مناسب
+                pdf.image(image_path, x=0, y=0, w=new_width, h=new_height)
+                pdf.output(temp_pdf)
+
+                # قراءة الملف المؤقت الذي يحتوي على الصورة
+                image_pdf_reader = PdfReader(temp_pdf)
+                image_pdf_page = image_pdf_reader.pages[0]
+                writer.add_page(image_pdf_page)
+
+                # حذف الصورة المؤقتة
+                os.remove(image_path)
+                os.remove(temp_pdf)
 
             # حفظ الـ PDF المعدل
             with open(pdf_path, "wb") as output_file:
                 writer.write(output_file)
 
-            # حذف الملف المؤقت
-            os.remove(temp_pdf)
-            os.remove(image_path)  # حذف الصورة المؤقتة
-            return {"message": "تم إضافة الصورة بنجاح إلى ملف PDF!"}
+            return {"message": "تم إضافة الصور بنجاح إلى ملف PDF!"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     
@@ -545,29 +585,57 @@ async def upload_pdf(new_filename: str, file: UploadFile = File(...)):
         try:
             writer = PdfWriter()
 
-            # إضافة الصورة إلى الـ PDF الجديد
-            temp_pdf = "temp_image_page.pdf"
-            pdf = FPDF()
-            pdf.add_page()
-            image_path = os.path.join(UPLOAD_DIR, file.filename)
-            with open(image_path, 'wb') as image_file:
-                image_file.write(await file.read())  # حفظ الصورة مؤقتًا
-            pdf.image(image_path, x=10, y=10, w=100)
-            pdf.output(temp_pdf)
+            # إضافة الصور إلى الـ PDF الجديد
+            for file in files:
+                temp_pdf = "temp_image_page.pdf"
+                pdf = FPDF()
+                pdf.add_page()
 
-            # قراءة الملف المؤقت الذي يحتوي على الصورة
-            image_pdf_reader = PdfReader(temp_pdf)
-            image_pdf_page = image_pdf_reader.pages[0]
-            writer.add_page(image_pdf_page)
+                # حساب أبعاد الصفحة (A4 هو الحجم القياسي)
+                page_width = pdf.w
+                page_height = pdf.h
+                
+                # مسار الصورة المؤقت
+                image_path = os.path.join(UPLOAD_DIR, file.filename)
+                
+                # حفظ الصورة مؤقتًا
+                with open(image_path, 'wb') as image_file:
+                    image_file.write(await file.read())
+                
+                # استخدام PIL للحصول على أبعاد الصورة الأصلية
+                with Image.open(image_path) as img:
+                    img_width, img_height = img.size
+                
+                # حساب النسب وتعديل حجم الصورة بحيث تحافظ على النسبة الأصلية
+                # حساب نسبة التوسيع للعرض والارتفاع
+                width_ratio = page_width / img_width
+                height_ratio = page_height / img_height
+                
+                # اختر النسبة الأصغر لتجنب التشويه
+                scale_ratio = min(width_ratio, height_ratio)
+                
+                # حساب الأبعاد الجديدة
+                new_width = img_width * scale_ratio
+                new_height = img_height * scale_ratio
+                
+                # إضافة الصورة إلى PDF بحجم مناسب
+                pdf.image(image_path, x=0, y=0, w=new_width, h=new_height)
+                pdf.output(temp_pdf)
+
+                # قراءة الملف المؤقت الذي يحتوي على الصورة
+                image_pdf_reader = PdfReader(temp_pdf)
+                image_pdf_page = image_pdf_reader.pages[0]
+                writer.add_page(image_pdf_page)
+
+                # حذف الصورة المؤقتة
+                os.remove(image_path)
+                os.remove(temp_pdf)
 
             # إنشاء ملف PDF جديد
             with open(pdf_path, "wb") as output_file:
                 writer.write(output_file)
 
-            # حذف الملفات المؤقتة
-            os.remove(temp_pdf)
-            os.remove(image_path)  # حذف الصورة المؤقتة
-            return {"message": "تم إنشاء ملف PDF جديد وإضافة الصورة بنجاح!"}
+            return {"message": "تم إنشاء ملف PDF جديد وإضافة الصور بنجاح!"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -713,7 +781,47 @@ async def get_arshef_by_name(case: arshefallsbyname):
     finally:
         conn.close()
         
+class nmozgreq(BaseModel):
+    user_id : int
+    nmozg_name: str
+    nmozg_decision: str
+
+@app.post("/add_nmozg/")
+def add_nmozg(nmozg: nmozgreq):
+    conn = sqlite3.connect(database)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+    INSERT INTO nmozg (user_id,nmozg_name, nmozg_decision)
+    VALUES (?,?, ?);
+''', (nmozg.user_id,nmozg.nmozg_name, nmozg.nmozg_decision))
+    conn.commit()
+    conn.close()
+    return {"detail": "تم اضافة نموزج بنجاح"}     
+
+class allnmozg(BaseModel):
+    user_id: int
+
+@app.post("/all_nmozg/")
+async def get_all_nmozg_usera(case : allnmozg):
+    try:
+        conn = sqlite3.connect(database)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(''' 
+    SELECT * FROM nmozg
+    WHERE user_id = ?
+''',(case.user_id,))
+
+        nmozg = cursor.fetchall()
         
+        if not nmozg:
+            raise HTTPException(status_code=404, detail="No cases found without sessions")
+        
+        return nmozg 
+    finally:
+        conn.close()
+
 
 if __name__ =="__main__":
     uvicorn.run("main:app",host="10.1.179.130",port=8080,reload=True)
