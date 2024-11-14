@@ -77,8 +77,10 @@ def create():
         session_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         case_number TEXT,
+        session_rol INTEGER ,
         session_date DATE,
         session_decision TEXT,
+        session_hasr TEXT,
         FOREIGN KEY (case_number) REFERENCES Cases(case_number)
     )
     ''')
@@ -317,7 +319,7 @@ async def get_cases_by_usera(case: Casesalls):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-    SELECT s.session_id, c.case_number, s.session_date, s.session_decision, 
+    SELECT s.session_id, c.case_number, s.session_rol, s.session_hasr, s.session_date, s.session_decision, 
            c.user_id, c.case_year, c.case_type, c.first_instance_court,
            c.appellate_court, c.appellate_case_number, c.appellate_case_year,
            c.client_name, c.client_role, c.opponent_name, c.opponent_role,
@@ -352,7 +354,7 @@ async def get_casesweek_usera(case: Casesallsweek):
         today = date.today()
         next_week = today + timedelta(days=7)
         cursor.execute('''
-    SELECT s.session_id, c.case_number, s.session_date, s.session_decision, 
+    SELECT s.session_id, c.case_number,s.session_rol, s.session_hasr, s.session_date, s.session_decision, 
            c.user_id, c.case_year, c.case_type, c.first_instance_court,
            c.appellate_court, c.appellate_case_number, c.appellate_case_year,
            c.client_name, c.client_role, c.opponent_name, c.opponent_role,
@@ -383,7 +385,7 @@ async def get_casesempty_usera(case : Casesallsempty):
         cursor = conn.cursor()
         
         cursor.execute(''' 
-    SELECT s.session_id, s.session_date, s.session_decision, 
+    SELECT s.session_id,s.session_rol, s.session_hasr, s.session_date, s.session_decision, 
            c.user_id,c.case_number, c.case_year, c.case_type, c.first_instance_court,
            c.appellate_court, c.appellate_case_number, c.appellate_case_year,
            c.client_name, c.client_role, c.opponent_name, c.opponent_role,
@@ -444,8 +446,10 @@ async def get_sessions(case : getsessions):
 class Session(BaseModel):
     user_id : int
     case_number: str
+    session_rol:int
     session_date: str
     session_decision: str
+    session_hasr : str
 
 @app.post("/sessionsadd/")
 async def add_session(session: Session):
@@ -453,9 +457,9 @@ async def add_session(session: Session):
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO Sessions (user_id,case_number, session_date, session_decision)
-            VALUES (?,?, ?, ?)
-        ''', (session.user_id,session.case_number, session.session_date, session.session_decision))
+            INSERT INTO Sessions (user_id,case_number,session_rol, session_date, session_decision,session_hasr)
+            VALUES (?,?, ?,?,?,?)
+        ''', (session.user_id,session.case_number,session.session_rol, session.session_date, session.session_decision,session.session_hasr))
 
         conn.commit()
     
@@ -463,8 +467,10 @@ async def add_session(session: Session):
 
 class UpdateSession(BaseModel):
     session_id: int
+    session_rol: int
     session_decision: str
     session_date: str
+    session_hasr: str
 
 @app.post("/update-session/")
 async def update_session(data: UpdateSession):
@@ -473,9 +479,9 @@ async def update_session(data: UpdateSession):
     
         cursor.execute('''
             UPDATE Sessions
-            SET session_decision = ? , session_date = ?
+            SET session_decision = ? , session_date = ? ,session_rol = ?, session_hasr = ?
             WHERE session_id = ?
-        ''', (data.session_decision,data.session_date, data.session_id))
+        ''', (data.session_decision,data.session_date,data.session_rol,data.session_hasr, data.session_id))
         conn.commit()
         return {"message": "تم تحديث القرار بنجاح"}
 
@@ -824,4 +830,4 @@ async def get_all_nmozg_usera(case : allnmozg):
 
 
 if __name__ =="__main__":
-    uvicorn.run("main:app",host="10.1.179.130",port=8080,reload=True)
+    uvicorn.run("main:app",host="10.1.130.219",port=8080,reload=True)
